@@ -249,6 +249,20 @@
         #t-detail-icon { font-size: 6vh; margin-bottom: 1vh; filter: drop-shadow(0 0 10px #fff); }
         #t-detail-name { font-size: 2vh; color: #ffd700; margin-bottom: 1vh; }
         #t-detail-desc { font-size: 1.4vh; color: #aaa; line-height: 1.5; }
+
+        /* 版本號標示 */
+        #game-version {
+            position: absolute;
+            bottom: max(10px, var(--sab));
+            right: max(10px, var(--sar));
+            color: #fff700;
+            font-size: 1.2vh;
+            font-family: 'Press Start 2P', monospace;
+            z-index: 60;
+            text-align: right;
+            pointer-events: none; /* 避免擋到點擊 */
+        }
+
     </style>
 </head>
 
@@ -312,6 +326,7 @@
         </div>
         <div class="btn-generic txt-instruct-btn" onclick="showInstructions()">INSTRUCTIONS</div>
         <div class="credits txt-credits">© 2025 PIXEL STUDIO</div>
+        <div id="game-version">Ver. 1.1 (REV 2025.12.18)</div>
     </div>
 
     <!-- CAMPAIGN MENU (SLOTS) -->
