@@ -249,20 +249,30 @@
         #t-detail-icon { font-size: 6vh; margin-bottom: 1vh; filter: drop-shadow(0 0 10px #fff); }
         #t-detail-name { font-size: 2vh; color: #ffd700; margin-bottom: 1vh; }
         #t-detail-desc { font-size: 1.4vh; color: #aaa; line-height: 1.5; }
-
-        /* 版本號標示 */
-        #game-version {
-            position: absolute;
-            bottom: max(10px, var(--sab));
-            right: max(10px, var(--sar));
-            color: #fff700;
-            font-size: 1.2vh;
-            font-family: 'Press Start 2P', monospace;
-            z-index: 60;
-            text-align: right;
-            pointer-events: none; /* 避免擋到點擊 */
+    
+        /* --- 🆕 全域懸浮說明框樣式 --- */
+        #global-skill-tooltip {
+            position: fixed;
+            z-index: 9999; /* 確保在最上層 */
+            background: rgba(10, 10, 15, 0.98);
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            padding: 15px;
+            width: 260px;
+            pointer-events: none; /* 讓滑鼠點擊可以穿透它 */
+            display: none; /* 預設隱藏 */
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            text-align: left;
+            backdrop-filter: blur(5px);
         }
 
+        .gst-header { display: flex; align-items: center; border-bottom: 1px solid #555; padding-bottom: 8px; margin-bottom: 8px; }
+        .gst-icon { font-size: 3vh; margin-right: 10px; }
+        .gst-title { color: #ffd700; font-size: 1.8vh; font-weight: bold; }
+        .gst-desc { color: #ccc; font-size: 1.4vh; line-height: 1.5; margin-bottom: 10px; }
+        .gst-meta { font-size: 1.2vh; color: #888; display: flex; justify-content: space-between; }
+        .gst-cost { color: #4f4; }
+           
     </style>
 </head>
 
@@ -299,9 +309,21 @@
 
     <!-- P2 UI -->
     <div id="p2-ui" class="ui-layer">
-        <div class="unit-btn selected-p2" id="btn-p2-sword" onclick="selectUnit(2, 'SWORD')"><span class="icon" style="color:#ff5555">⚔️</span></div>
-        <div class="unit-btn" id="btn-p2-spear" onclick="selectUnit(2, 'SPEAR')"><span class="icon" style="color:#5555ff">🔱</span></div>
-        <div class="unit-btn" id="btn-p2-axe" onclick="selectUnit(2, 'AXE')"><span class="icon" style="color:#55ff55">🪓</span></div>
+        <div class="unit-btn selected-p2" id="btn-p2-sword" onclick="selectUnit(2, 'SWORD')">
+            <span class="icon" style="color:#ff5555">⚔️</span>
+            <div class="txt-sword">SWORD</div>
+            <div style="color:#aaa; font-size:1vh;">$20</div>
+        </div>
+        <div class="unit-btn" id="btn-p2-spear" onclick="selectUnit(2, 'SPEAR')">
+            <span class="icon" style="color:#5555ff">🔱</span>
+            <div class="txt-spear">SPEAR</div>
+            <div style="color:#aaa; font-size:1vh;">$20</div>
+        </div>
+        <div class="unit-btn" id="btn-p2-axe" onclick="selectUnit(2, 'AXE')">
+            <span class="icon" style="color:#55ff55">🪓</span>
+            <div class="txt-axe">AXE</div>
+            <div style="color:#aaa; font-size:1vh;">$20</div>
+        </div>
     </div>
     
     <!-- UPGRADE MENU -->
@@ -326,7 +348,6 @@
         </div>
         <div class="btn-generic txt-instruct-btn" onclick="showInstructions()">INSTRUCTIONS</div>
         <div class="credits txt-credits">© 2025 PIXEL STUDIO</div>
-        <div id="game-version">Ver. 1.1 (REV 2025.12.18)</div>
     </div>
 
     <!-- CAMPAIGN MENU (SLOTS) -->
@@ -454,12 +475,6 @@
         </div>
     </div>
 
-           <div id="game-over-screen" onclick="handleGameOverClick()">
-        <h1 id="winner-text" style="font-size: 6vh; margin-bottom: 20px;">VICTORY</h1>
-        <div id="stats-container"></div>
-        <p id="game-over-subtext" style="font-size: 2vh; animation: blink 1s infinite; margin-top: 20px;" class="txt-exit-tap">TAP TO RETURN TO MENU</p>
-    </div>
-
     <div id="dice-modal">
         <div class="dice-box" id="dice-step-1">
             <div class="section-title" style="color:#ffd700; font-size:2.5vh">TREASURE CHANCE</div>
@@ -469,7 +484,7 @@
                 <button class="btn-generic" onclick="playDice('LOW')" style="border-color:#44f; color:#aaf;">LOW (1-3)</button>
                 <button class="btn-generic" onclick="playDice('HIGH')" style="border-color:#f44; color:#faa;">HIGH (4-6)</button>
             </div>
-            <div class="btn-generic" onclick="closeDiceGame()" style="margin-top:2vh; font-size:1.5vh; padding:1vh;">SKIP</div>
+            <div class="btn-generic" onclick="closeDiceGame()" style="margin-top:2vh; font-size:1.5vh; padding:1vh;">No Thanks</div>
         </div>
 
         <div class="dice-box treasure-reveal" id="dice-step-2">
@@ -485,6 +500,8 @@
             <button class="btn-generic" onclick="closeDiceGame()">CONTINUE</button>
         </div>
     </div>
+
+    <div id="global-skill-tooltip"></div>
 
 <script>
 (function() {
@@ -639,9 +656,12 @@ const TREASURES = [
     };
 
     function unlockRandomTreasure() {
-        if (!currentSlotData) return null;
-        if (!currentSlotData.meta.collection) currentSlotData.meta.collection = [];
-        
+       if (!currentSlotData) return null;
+        // 確保 meta 存在
+        if (!currentSlotData.meta) currentSlotData.meta = { stars: 0, skills: {}, collection: [] };
+        // 確保 collection 是一個陣列 (防止舊存檔是 null 或 undefined)
+        if (!Array.isArray(currentSlotData.meta.collection)) currentSlotData.meta.collection = [];
+       
         let playerCollection = currentSlotData.meta.collection;
         let unowned = TREASURES.filter(t => !playerCollection.includes(t.id));
 
@@ -673,46 +693,51 @@ const TREASURES = [
     }
 
     // --- EXPANDED SKILL TREE (UNLIMITED LEVELS) ---
+    // --- EXPANDED SKILL TREE (ORDER: Sword -> Spear -> Axe -> Castle -> Eco) ---
     const SKILL_TREE = [
-        // ROOT
-        { id: 'recruit', icon: '⭐️', cost: 1, name: {'zh-TW':'新兵訓練','en':'RECRUIT','ja':'新兵訓練'}, desc: {'zh-TW':'全單位生命 +5% /級','en':'All HP +5% /Lv','ja':'全HP+5% /Lv'}, 
-          effect: (p, lvl) => { p.stats.swordHp+=0.05*lvl; p.stats.spearHp+=0.05*lvl; p.stats.axeHp+=0.05*lvl; }, x: 50, y: 10, parent: null },
+        // 🧬 根節點：基因改造起點 (位置保持在正中間)
+        { id: 'recruit', icon: '🧬', cost: 1, name: {'zh-TW':'基因覺醒','en':'GENE AWAKE','ja':'遺伝子覚醒'}, desc: {'zh-TW':'全單位生命 +5% /級','en':'All HP +5% /Lv','ja':'全HP+5% /Lv'}, 
+          effect: (p, lvl) => { const b=0.05*lvl; p.stats.swordHp+=b; p.stats.spearHp+=b; p.stats.axeHp+=b; }, x: 50, y: 10, parent: null },
         
-        // LEFT BRANCH (OFFENSE)
-        { id: 'swordsman', icon: '⚔️', cost: 1, name: {'zh-TW':'劍術入門','en':'SWORDSMAN','ja':'剣術入門'}, desc: {'zh-TW':'劍兵傷害 +10% /級','en':'Sword Dmg +10% /Lv','ja':'剣兵攻+10% /Lv'}, 
-          effect: (p, lvl)=>p.stats.swordDmg+=0.1*lvl, x: 30, y: 25, parent: 'recruit' },
-        { id: 'warrior', icon: '🪓', cost: 1, name: {'zh-TW':'戰士訓練','en':'WARRIOR','ja':'戦士訓練'}, desc: {'zh-TW':'斧兵傷害 +10% /級','en':'Axe Dmg +10% /Lv','ja':'斧兵攻+10% /Lv'}, 
-          effect: (p, lvl)=>p.stats.axeDmg+=0.1*lvl, x: 15, y: 35, parent: 'swordsman' },
-        { id: 'fencer', icon: '🤺', cost: 2, name: {'zh-TW':'劍舞者','en':'FENCER','ja':'フェンサー'}, desc: {'zh-TW':'劍兵速度 +5% /級','en':'Sword Spd +5% /Lv','ja':'剣兵速+5% /Lv'}, 
-          effect: (p, lvl)=>p.stats.swordSpd+=0.05*lvl, x: 30, y: 45, parent: 'swordsman' },
-        { id: 'berserker', icon: '😡', cost: 2, name: {'zh-TW':'狂戰士','en':'BERSERKER','ja':'バーサーカー'}, desc: {'zh-TW':'斧兵速度 +5% /級','en':'Axe Spd +5% /Lv','ja':'斧兵速+5% /Lv'}, 
-          effect: (p, lvl)=>p.stats.axeSpd+=0.05*lvl, x: 15, y: 55, parent: 'warrior' },
-        { id: 'sword_master', icon: '🗡️', cost: 3, name: {'zh-TW':'劍聖','en':'SWORD MASTER','ja':'剣聖'}, desc: {'zh-TW':'劍兵傷害 +20% /級','en':'Sword Dmg +20% /Lv','ja':'剣兵攻+20% /Lv'}, 
-          effect: (p, lvl)=>p.stats.swordDmg+=0.2*lvl, x: 30, y: 65, parent: 'fencer' },
-        { id: 'axe_lord', icon: '👹', cost: 3, name: {'zh-TW':'戰神','en':'WAR GOD','ja':'戦神'}, desc: {'zh-TW':'斧兵生命 +20% /級','en':'Axe HP +20% /Lv','ja':'斧兵HP+20% /Lv'}, 
-          effect: (p, lvl)=>p.stats.axeHp+=0.2*lvl, x: 15, y: 75, parent: 'berserker' },
+        // ⚔️ 支線 1: 劍兵 (位置 x=10)
+        { id: 'neural_boost', icon: '⚡', cost: 1, name: {'zh-TW':'神經加速','en':'NEURAL BOOST','ja':'神経加速'}, desc: {'zh-TW':'劍兵速度 +5% /級','en':'Sword Spd +5% /Lv','ja':'剣兵速+5% /Lv'}, 
+          effect: (p, lvl)=>p.stats.swordSpd+=0.05*lvl, x: 10, y: 30, parent: 'recruit' },
+        { id: 'muscle_fiber', icon: '💪', cost: 2, name: {'zh-TW':'紅肌纖維','en':'RED FIBER','ja':'赤筋繊維'}, desc: {'zh-TW':'劍兵傷害 +10% /級','en':'Sword Dmg +10% /Lv','ja':'剣兵攻+10% /Lv'}, 
+          effect: (p, lvl)=>p.stats.swordDmg+=0.1*lvl, x: 10, y: 50, parent: 'neural_boost' },
+        { id: 'eagle_eye', icon: '👁️', cost: 3, name: {'zh-TW':'動態視力','en':'EAGLE EYE','ja':'動体視力'}, desc: {'zh-TW':'全單位爆擊率 +1% /級','en':'Crit Rate +1% /Lv','ja':'会心率+1% /Lv'}, 
+          effect: (p, lvl)=>p.perks.critChance+=0.01*lvl, x: 10, y: 70, parent: 'muscle_fiber' },
 
-        // RIGHT BRANCH (DEFENSE)
-        { id: 'guardsman', icon: '🛡️', cost: 1, name: {'zh-TW':'守衛訓練','en':'GUARDSMAN','ja':'守衛訓練'}, desc: {'zh-TW':'槍兵生命 +10% /級','en':'Spear HP +10% /Lv','ja':'槍兵HP+10% /Lv'}, 
-          effect: (p, lvl)=>p.stats.spearHp+=0.1*lvl, x: 70, y: 25, parent: 'recruit' },
-        { id: 'fortification', icon: '🧱', cost: 1, name: {'zh-TW':'加固工事','en':'FORTIFY','ja':'防壁強化'}, desc: {'zh-TW':'基地生命 +500 /級','en':'Base HP +500 /Lv','ja':'基地HP+500 /Lv'}, 
-          effect: (p, lvl)=>p.baseHealth+=500*lvl, x: 85, y: 35, parent: 'guardsman' },
-        { id: 'phalanx', icon: '🔱', cost: 2, name: {'zh-TW':'方陣長槍','en':'PHALANX','ja':'ファランクス'}, desc: {'zh-TW':'槍兵傷害 +10% /級','en':'Spear Dmg +10% /Lv','ja':'槍兵攻+10% /Lv'}, 
-          effect: (p, lvl)=>p.stats.spearDmg+=0.1*lvl, x: 70, y: 45, parent: 'guardsman' },
-        { id: 'castle_wall', icon: '🏰', cost: 3, name: {'zh-TW':'鋼鐵堡壘','en':'IRON CASTLE','ja':'鉄の城'}, desc: {'zh-TW':'基地生命 +1000 /級','en':'Base HP +1000 /Lv','ja':'基地HP+1000 /Lv'}, 
-          effect: (p, lvl)=>p.baseHealth+=1000*lvl, x: 85, y: 55, parent: 'fortification' },
-        { id: 'spear_legend', icon: '🎖️', cost: 3, name: {'zh-TW':'傳奇槍兵','en':'LEGENDARY','ja':'伝説の槍'}, desc: {'zh-TW':'槍兵生命 +20% /級','en':'Spear HP +20% /Lv','ja':'槍兵HP+20% /Lv'}, 
-          effect: (p, lvl)=>p.stats.spearHp+=0.2*lvl, x: 70, y: 65, parent: 'phalanx' },
+        // 🔱 支線 2: 槍兵 (位置 x=30)
+        { id: 'iron_skin', icon: '🛡️', cost: 1, name: {'zh-TW':'硬化皮膚','en':'IRON SKIN','ja':'硬化皮膚'}, desc: {'zh-TW':'槍兵生命 +15% /級','en':'Spear HP +15% /Lv','ja':'槍兵HP+15% /Lv'}, 
+          effect: (p, lvl)=>p.stats.spearHp+=0.15*lvl, x: 30, y: 30, parent: 'recruit' },
+        { id: 'piercing_power', icon: '🔱', cost: 2, name: {'zh-TW':'貫穿勁道','en':'PIERCING','ja':'貫通力'}, desc: {'zh-TW':'槍兵傷害 +10% /級','en':'Spear Dmg +10% /Lv','ja':'槍兵攻+10% /Lv'}, 
+          effect: (p, lvl)=>p.stats.spearDmg+=0.1*lvl, x: 30, y: 50, parent: 'iron_skin' },
+        { id: 'bio_spikes', icon: '🐡', cost: 3, name: {'zh-TW':'生物棘刺','en':'BIO SPIKES','ja':'生物棘'}, desc: {'zh-TW':'受到傷害反彈 +2% /級','en':'Reflect +2% /Lv','ja':'反射+2% /Lv'}, 
+          effect: (p, lvl)=>p.perks.thorns+=0.02*lvl, x: 30, y: 70, parent: 'piercing_power' },
 
-        // MIDDLE BRANCH (ECONOMY)
-        { id: 'logistics', icon: '📦', cost: 2, name: {'zh-TW':'後勤學','en':'LOGISTICS','ja':'兵站学'}, desc: {'zh-TW':'能量回復 +5% /級','en':'Energy +5% /Lv','ja':'活力+5% /Lv'}, 
-          effect: (p, lvl)=>p.stats.energyRate+=0.05*lvl, x: 50, y: 30, parent: 'recruit' },
-        { id: 'supply_lines', icon: '🚚', cost: 2, name: {'zh-TW':'補給線','en':'SUPPLY','ja':'補給線'}, desc: {'zh-TW':'能量回復 +10% /級','en':'Energy +10% /Lv','ja':'活力+10% /Lv'}, 
-          effect: (p, lvl)=>p.stats.energyRate+=0.1*lvl, x: 50, y: 50, parent: 'logistics' },
-        { id: 'industrial', icon: '🏭', cost: 3, name: {'zh-TW':'工業化','en':'INDUSTRY','ja':'工業化'}, desc: {'zh-TW':'能量回復 +15% /級','en':'Energy +15% /Lv','ja':'活力+15% /Lv'}, 
-          effect: (p, lvl)=>p.stats.energyRate+=0.15*lvl, x: 50, y: 70, parent: 'supply_lines' },
-        { id: 'general', icon: '👑', cost: 5, name: {'zh-TW':'帝國時代','en':'EMPIRE','ja':'帝国時代'}, desc: {'zh-TW':'全單位全屬性 +5% /級','en':'All Stats +5% /Lv','ja':'全ステ+5% /Lv'}, 
-          effect: (p, lvl)=>{ const b=0.05*lvl; p.stats.swordDmg+=b; p.stats.swordHp+=b; p.stats.swordSpd+=b; p.stats.spearDmg+=b; p.stats.spearHp+=b; p.stats.spearSpd+=b; p.stats.axeDmg+=b; p.stats.axeHp+=b; p.stats.axeSpd+=b; }, x: 50, y: 90, parent: 'industrial' }
+        // 🪓 支線 3: 斧兵 (位置 x=50，正下方)
+        { id: 'giant_growth', icon: '🦍', cost: 1, name: {'zh-TW':'巨人激素','en':'GIANT HORMONE','ja':'巨人化'}, desc: {'zh-TW':'斧兵生命 +10% /級','en':'Axe HP +10% /Lv','ja':'斧兵HP+10% /Lv'}, 
+          effect: (p, lvl)=>p.stats.axeHp+=0.1*lvl, x: 50, y: 30, parent: 'recruit' },
+        { id: 'bone_density', icon: '🦴', cost: 2, name: {'zh-TW':'骨骼密度','en':'BONE DENSITY','ja':'骨密度'}, desc: {'zh-TW':'斧兵傷害 +15% /級','en':'Axe Dmg +15% /Lv','ja':'斧兵攻+15% /Lv'}, 
+          effect: (p, lvl)=>p.stats.axeDmg+=0.15*lvl, x: 50, y: 50, parent: 'giant_growth' },
+        { id: 'vampiric_cell', icon: '🩸', cost: 3, name: {'zh-TW':'嗜血細胞','en':'VAMPIRIC CELL','ja':'吸血細胞'}, desc: {'zh-TW':'全單位吸血 +1% /級','en':'Vampire +1% /Lv','ja':'吸血+1% /Lv'}, 
+          effect: (p, lvl)=>p.perks.vampire+=0.01*lvl, x: 50, y: 70, parent: 'bone_density' },
+
+        // 🏰 支線 4: 城堡 (位置 x=70)
+        { id: 'living_hive', icon: '🏰', cost: 1, name: {'zh-TW':'活體母巢','en':'LIVING HIVE','ja':'生体要塞'}, desc: {'zh-TW':'基地生命 +500 /級','en':'Base HP +500 /Lv','ja':'基地HP+500 /Lv'}, 
+          effect: (p, lvl)=>p.baseHealth+=500*lvl, x: 70, y: 30, parent: 'recruit' },
+        { id: 'repulse_field', icon: '🌊', cost: 2, name: {'zh-TW':'斥力立場','en':'REPULSE','ja':'斥力場'}, desc: {'zh-TW':'攻擊擊退機率 +2% /級','en':'Knockback +2% /Lv','ja':'撃退率+2% /Lv'}, 
+          effect: (p, lvl)=>p.perks.knockback+=0.02*lvl, x: 70, y: 50, parent: 'living_hive' },
+        { id: 'volatile_blood', icon: '🧪', cost: 3, name: {'zh-TW':'不穩定血','en':'VOLATILE','ja':'不安定な血'}, desc: {'zh-TW':'死亡自爆傷害 +10 /級','en':'Explode Dmg +10 /Lv','ja':'自爆ダメ+10 /Lv'}, 
+          effect: (p, lvl)=>p.perks.explodeDmg+=10*lvl, x: 70, y: 70, parent: 'repulse_field' },
+
+        // 💰 支線 5: 經濟 (位置 x=90)
+        { id: 'metabolism', icon: '🔥', cost: 2, name: {'zh-TW':'超強代謝','en':'METABOLISM','ja':'超代謝'}, desc: {'zh-TW':'能量回復 +5% /級','en':'Energy Rate +5% /Lv','ja':'活力回復+5% /Lv'}, 
+          effect: (p, lvl)=>p.stats.energyRate+=0.05*lvl, x: 90, y: 30, parent: 'recruit' },
+        { id: 'adrenaline', icon: '💉', cost: 3, name: {'zh-TW':'腎上腺素','en':'ADRENALINE','ja':'アドレナリン'}, desc: {'zh-TW':'擊殺回能 +1 /級','en':'Energy on Kill +1 /Lv','ja':'撃破回復+1 /Lv'}, 
+          effect: (p, lvl)=>p.perks.energyOnKill+=1*lvl, x: 90, y: 50, parent: 'metabolism' },
+        { id: 'evolution', icon: '🧬', cost: 4, name: {'zh-TW':'進化適應','en':'EVOLUTION','ja':'進化適応'}, desc: {'zh-TW':'召喚消耗 -1 /級 (Min 5)','en':'Cost -1 /Lv','ja':'消費-1 /Lv'}, 
+          effect: (p, lvl)=>p.perks.costReduction+=1*lvl, x: 90, y: 70, parent: 'adrenaline' }
     ];
 
     // --- GAME CONSTANTS ---
@@ -804,7 +829,12 @@ const TREASURES = [
         const q = (s) => document.querySelector(s);
         const qa = (s) => document.querySelectorAll(s);
         const safeText = (sel, key) => { const el = q(sel); if(el) el.innerText = t(key); };
-        const safeHTML = (sel, key) => { const el = q(sel); if(el) el.innerHTML = t(key).replace('\n','<br>'); };
+
+        const safeHTML = (sel, key) => { 
+            document.querySelectorAll(sel).forEach(el => {
+                el.innerHTML = t(key).replace('\n','<br>');
+            });
+        };
 
         safeHTML('.txt-title', 'TITLE');
         qa('.txt-solo-title').forEach(e => e.innerText = t('SOLO_TITLE'));
@@ -1032,17 +1062,48 @@ const TREASURES = [
         SNOW: { bg: "#d0dce8", road: "#aabccd", roadDetail: "#8a9cb0", roadDecor: ["#99aabb", "#ddeeff"], decorTypes: ['SNOW_TREE','ICE_ROCK','SNOW_PILE'], decorColor: {tree:"#2d4a3e",rock:"#aaddff",grass:"#fff"}, particle: "SNOW", vignette: "rgba(0,20,50,0.4)" }
     };
     
+    // --- ⚔️ 新版戰爭會議：特殊異能系統 ---
     const PERKS = [
-        { id: 'SWORD_DMG', names: {'zh-TW':'鋒利劍刃','en':'SHARPENED BLADES','ja':'鋭利な刃'}, descs: {'zh-TW':'劍兵傷害 +20%','en':'Sword units +20% Damage','ja':'剣兵のダメージ+20%'}, type: 'BUFF', icon: '⚔️', unitType: 'SWORD', apply: (p) => p.stats.swordDmg += 0.2 },
-        { id: 'SPEAR_HP', names: {'zh-TW':'方陣盾牌','en':'PHALANX SHIELD','ja':'ファランクス'}, descs: {'zh-TW':'槍兵生命 +20%','en':'Spear units +20% HP','ja':'槍兵のHP+20%'}, type: 'BUFF', icon: '🛡️', unitType: 'SPEAR', apply: (p) => p.stats.spearHp += 0.2 },
-        { id: 'AXE_SPD', names: {'zh-TW':'狂戰士之怒','en':'BERSERKER RAGE','ja':'バーサーカー'}, descs: {'zh-TW':'斧兵速度 +15%','en':'Axe units +15% Speed','ja':'斧兵の速度+15%'}, type: 'BUFF', icon: '⚡', unitType: 'AXE', apply: (p) => p.stats.axeSpd += 0.15 },
-        { id: 'ENERGY_BST', names: {'zh-TW':'後勤補給','en':'LOGISTICS','ja':'兵站確保'}, descs: {'zh-TW':'能量回復 +15%','en':'Energy Regen +15%','ja':'エネルギー回復+15%'}, type: 'ECO', icon: '🔋', unitType: null, apply: (p) => p.stats.energyRate += 0.15 },
-        { id: 'BASE_REP', names: {'zh-TW':'堡壘修復','en':'FORTIFY','ja':'要塞修復'}, descs: {'zh-TW':'基地回復 300 HP','en':'Repair Base +300 HP','ja':'基地HP+300回復'}, type: 'ECO', icon: '🏰', unitType: null, apply: (p) => p.baseHealth = Math.min(1000, p.baseHealth + 300) },
-        { id: 'ALL_HP', names: {'zh-TW':'戰時配給','en':'RATIONS','ja':'野戦糧食'}, descs: {'zh-TW':'全單位生命 +10%','en':'All units +10% HP','ja':'全ユニットHP+10%'}, type: 'BUFF', icon: '🍎', unitType: 'ALL', apply: (p) => { p.stats.swordHp+=0.1; p.stats.spearHp+=0.1; p.stats.axeHp+=0.1; } }
+        // 攻擊系異能
+        { id: 'CRITICAL', names: {'zh-TW':'弱點識破','en':'CRITICAL HIT','ja':'会心の一撃'}, descs: {'zh-TW':'所有單位 5% 機率造成 200% 傷害','en':'5% Chance to deal 200% Dmg','ja':'5%確率で200%ダメージ'}, type: 'BUFF', icon: '🎯', unitType: 'ALL', 
+          apply: (p) => p.perks.critChance += 0.05 },
+        
+        { id: 'VAMPIRE', names: {'zh-TW':'嗜血渴望','en':'VAMPIRISM','ja':'吸血'}, descs: {'zh-TW':'攻擊時回復 10% 傷害值的生命','en':'Heal 10% of Dmg dealt','ja':'与ダメの10%を回復'}, type: 'BUFF', icon: '🧛', unitType: 'ALL', 
+          apply: (p) => p.perks.vampire += 0.1 },
+          
+        { id: 'KNOCKBACK', names: {'zh-TW':'巨力猛擊','en':'HEAVY BLOW','ja':'剛腕'}, descs: {'zh-TW':'攻擊有 5% 機率擊退敵人','en':'5% Chance to Knockback','ja':'5%確率でノックバック'}, type: 'BUFF', icon: '🥊', unitType: 'ALL', 
+          apply: (p) => p.perks.knockback += 0.05 },
+
+        // 防禦/反擊系異能
+        { id: 'THORNS', names: {'zh-TW':'荊棘護甲','en':'THORNS','ja':'茨の鎧'}, descs: {'zh-TW':'受到近戰傷害時，反彈 10% 傷害','en':'Reflect 10% melee damage','ja':'近接ダメの10%を反射'}, type: 'BUFF', icon: '🌵', unitType: 'ALL', 
+          apply: (p) => p.perks.thorns += 0.1 },
+          
+        { id: 'KAMIKAZE', names: {'zh-TW':'最後的榮耀','en':'MARTYRDOM','ja':'特攻精神'}, descs: {'zh-TW':'死亡時自爆，對周圍造成 10 點傷害','en':'Explode on death (10 Dmg)','ja':'死亡時10ダメの自爆'}, type: 'BUFF', icon: '💣', unitType: 'ALL', 
+          apply: (p) => p.perks.explodeDmg += 10 },
+
+        // 經濟/特殊系
+        { id: 'DISCOUNT', names: {'zh-TW':'量產協議','en':'MASS PROD','ja':'量産体制'}, descs: {'zh-TW':'所有單位能量消耗減少 1 點','en':'Unit Cost -1 Energy','ja':'召喚コスト-1'}, type: 'ECO', icon: '📉', unitType: null, 
+          apply: (p) => p.perks.costReduction += 1 },
+          
+        { id: 'SCAVENGER', names: {'zh-TW':'戰場拾荒','en':'SCAVENGER','ja':'スカベンジャー'}, descs: {'zh-TW':'每擊殺一個敵人回復 0.5 點能量','en':'Gain 0.5 Energy on kill','ja':'撃破時エナジー+0.5'}, type: 'ECO', icon: '💰', unitType: null, 
+          apply: (p) => p.perks.energyOnKill += 0.5 }
     ];
  
     function initStats(p) {
+        // 原有的基礎數值 (來自技能樹)
         p.stats = { swordDmg: 1.0, swordHp: 1.0, swordSpd: 1.0, spearDmg: 1.0, spearHp: 1.0, spearSpd: 1.0, axeDmg: 1.0, axeHp: 1.0, axeSpd: 1.0, energyRate: 1.0 };
+        
+        // --- ✅ 新增：特殊異能數值 (來自戰爭會議) ---
+        p.perks = { 
+            critChance: 0,      // 爆擊率
+            vampire: 0,         // 吸血比例
+            knockback: 0,       // 擊退機率
+            thorns: 0,          // 反傷比例
+            explodeDmg: 0,      // 自爆傷害
+            costReduction: 0,   // 減費
+            energyOnKill: 0     // 擊殺回能
+        };
+
         p.upgradeCounts = { SWORD: 0, SPEAR: 0, AXE: 0 };
         p.battleStats = { spawned: 0, damage: 0, kills: 0, perks: 0 };
         p.unitCounts = { SWORD: 0, SPEAR: 0, AXE: 0 };
@@ -1068,7 +1129,8 @@ const TREASURES = [
             
             // 修正單位位置
             units.forEach(u => { 
-                u.x *= ratio; 
+                let progress = u.x / oldW;
+                u.x = progress * w;
                 u.y = laneY[u.lane] + u.yOffset;
                 });
             
@@ -1153,32 +1215,37 @@ const TREASURES = [
         renderSkillTree();
     };
     
+    // --- 🛠️ 修正後的技能樹渲染函數 (含多語言 & 智慧定位) ---
     window.renderSkillTree = function() {
         const container = document.getElementById('skill-tree-container');
-        // 清除舊節點
-        const nodes = container.querySelectorAll('.skill-node'); nodes.forEach(n => n.remove());
+        const tooltip = document.getElementById('global-skill-tooltip');
         
-        // 安全檢查：確保 skills 是物件 (相容舊存檔)
+        // 清除舊節點
+        const nodes = container.querySelectorAll('.skill-node'); 
+        nodes.forEach(n => n.remove());
+        
+        // 確保數據存在
         let currentMeta = currentSlotData ? currentSlotData.meta : {stars:0, skills:{}};
-        if (Array.isArray(currentMeta.skills)) {
-            // 簡單遷移：如果是舊陣列，轉為物件，每個等級設為 1
-            const arr = currentMeta.skills; 
-            currentMeta.skills = {};
-            arr.forEach(id => currentMeta.skills[id] = 1);
-        }
+        if (Array.isArray(currentMeta.skills)) { const arr=currentMeta.skills; currentMeta.skills={}; arr.forEach(id=>currentMeta.skills[id]=1); }
         if (!currentMeta.skills) currentMeta.skills = {};
 
         document.getElementById('stars-display').innerText = `⭐: ${currentMeta.stars}`;
-        const svg = document.getElementById('skill-svg'); svg.innerHTML = '';
+        const svg = document.getElementById('skill-svg'); 
+        svg.innerHTML = '';
+
+        // 介面文字的多語言定義
+        const UI_TXT = {
+            'zh-TW': { COST: '升級費用', LV: '等級', MAX: '已達上限' },
+            'en': { COST: 'Upgrade Cost', LV: 'Level', MAX: 'MAX LEVEL' },
+            'ja': { COST: '強化費用', LV: 'レベル', MAX: '最大レベル' }
+        };
+        const T = UI_TXT[currentLang] || UI_TXT['en'];
 
         SKILL_TREE.forEach(skill => {
             const level = currentMeta.skills[skill.id] || 0;
-            // 判斷父節點是否有等級 (level > 0 即視為已解鎖)
             const parentUnlocked = !skill.parent || (currentMeta.skills[skill.parent] && currentMeta.skills[skill.parent] > 0);
-            
-            // 只要父節點解鎖了，就可以無限買，不再有 "unlocked" 禁止購買的狀態
             const affordable = currentMeta.stars >= skill.cost;
-            const available = parentUnlocked; // 只要父節點有學，這個節點就可見/可買
+            const available = parentUnlocked;
 
             // 繪製連線
             if (skill.parent) {
@@ -1187,47 +1254,100 @@ const TREASURES = [
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     line.setAttribute('x1', parent.x + '%'); line.setAttribute('y1', parent.y + '%');
                     line.setAttribute('x2', skill.x + '%'); line.setAttribute('y2', skill.y + '%');
-                    // 線條顏色：如果當前節點有點過 (level>0)，線條亮起
                     line.setAttribute('class', `skill-path ${level > 0 ? 'active' : ''}`); 
                     svg.appendChild(line);
                 }
             }
 
-            // 繪製節點
+            // 建立節點
             const node = document.createElement('div');
-            // 樣式邏輯：level > 0 就用 unlocked 樣式，但如果還能買且錢夠，會疊加 available 動畫
             let nodeClass = 'skill-node';
             if (level > 0) nodeClass += ' unlocked';
-            if (available && affordable) nodeClass += ' available'; // 閃爍效果
+            if (available && affordable) nodeClass += ' available';
             if (!available) nodeClass += ' locked';
 
             node.className = nodeClass;
             node.style.left = skill.x + '%'; node.style.top = skill.y + '%';
             
-            // 顯示內容：增加等級顯示
-            const costText = `${skill.cost}⭐`;
-            const levelText = level > 0 ? `<span style="color:#0f0; font-size:1vh">Lv.${level}</span>` : '';
+            // 節點內容 (只顯示圖示與等級)
+            const levelBadge = level > 0 ? `<div style="position:absolute; top:-5px; right:-5px; background:#000; color:#0f0; border:1px solid #0f0; border-radius:50%; width:16px; height:16px; font-size:10px; line-height:16px; text-align:center;">${level}</div>` : '';
             
             node.innerHTML = `
                 <div class="skill-icon">${skill.icon}</div>
-                <div class="skill-cost" style="font-size:1vh">${levelText} ${costText}</div>
-                <div class="skill-tooltip">
-                    <div style="color:#ffd700">${skill.name[currentLang]} (Lv.${level})</div>
-                    <div>${skill.desc[currentLang]}</div>
-                    <div style="color:#aaa; font-size:1vh; margin-top:0.5vh">Next Lv Cost: ${skill.cost}⭐</div>
-                </div>`;
+                ${levelBadge}
+            `;
 
+            // --- 🖱️ 滑鼠互動事件 (Tooltip 邏輯) ---
+            node.onpointerenter = (e) => {
+                // 1. 準備內容
+                const name = skill.name[currentLang] || skill.name['en'];
+                const desc = skill.desc[currentLang] || skill.desc['en'];
+                const costTxt = affordable ? `<span style="color:#ffd700">${skill.cost} ⭐</span>` : `<span style="color:#f44">${skill.cost} ⭐</span>`;
+                
+                tooltip.innerHTML = `
+                    <div class="gst-header">
+                        <div class="gst-icon">${skill.icon}</div>
+                        <div>
+                            <div class="gst-title">${name}</div>
+                            <div style="font-size:1.2vh; color:#888;">${T.LV} ${level}</div>
+                        </div>
+                    </div>
+                    <div class="gst-desc">${desc}</div>
+                    <div class="gst-meta">
+                        <div>${T.COST}:</div>
+                        <div class="gst-cost">${costTxt}</div>
+                    </div>
+                `;
+                
+                tooltip.style.display = 'block';
+
+                // 2. 智慧定位 (防止超出畫面)
+                const rect = tooltip.getBoundingClientRect();
+                let tx = e.clientX + 20; // 預設在滑鼠右方
+                let ty = e.clientY + 20; // 預設在滑鼠下方
+
+                // 如果超出右邊界，改放左邊
+                if (tx + rect.width > window.innerWidth) {
+                    tx = e.clientX - rect.width - 20;
+                }
+                // 如果超出下邊界，改放上面
+                if (ty + rect.height > window.innerHeight) {
+                    ty = e.clientY - rect.height - 20;
+                }
+
+                tooltip.style.left = tx + 'px';
+                tooltip.style.top = ty + 'px';
+            };
+
+            // 滑鼠移動時跟隨 (可選，讓體驗更順暢)
+            node.onpointermove = (e) => {
+                 const rect = tooltip.getBoundingClientRect();
+                 let tx = e.clientX + 20;
+                 let ty = e.clientY + 20;
+                 if (tx + rect.width > window.innerWidth) tx = e.clientX - rect.width - 20;
+                 if (ty + rect.height > window.innerHeight) ty = e.clientY - rect.height - 20;
+                 tooltip.style.left = tx + 'px';
+                 tooltip.style.top = ty + 'px';
+            };
+
+            node.onpointerleave = () => {
+                tooltip.style.display = 'none';
+            };
+
+            // 點擊升級邏輯
             node.onclick = () => { 
                 if(available && affordable && currentSlotData) { 
                     currentSlotData.meta.stars -= skill.cost; 
-                    // 升級邏輯：等級 + 1
                     currentSlotData.meta.skills[skill.id] = (currentSlotData.meta.skills[skill.id] || 0) + 1;
-                    
                     saveCurrentSlot(); 
                     SoundManager.playLevelUp(); 
-                    renderSkillTree(); 
+                    renderSkillTree(); // 重新渲染以更新狀態
+                    
+                    // 點擊後隱藏 Tooltip (避免手機版擋住視線)
+                    tooltip.style.display = 'none';
                 } 
             };
+            
             container.appendChild(node);
         });
     };
@@ -1272,16 +1392,21 @@ const TREASURES = [
         if(currentSlotData && currentSlotData.run) {
             gameMode = 'CAMPAIGN'; 
             currentLevel = currentSlotData.run.level; 
-            currentLoop = currentSlotData.run.loop || 0; // 讀取 Loop，沒有則為 0
+            currentLoop = currentSlotData.run.loop || 0; 
             
             // 讀取玩家狀態
             p1.stats = JSON.parse(JSON.stringify(currentSlotData.run.p1Stats)); 
             p1.upgradeCounts = JSON.parse(JSON.stringify(currentSlotData.run.p1Upgrades)); 
             p1.battleStats = currentSlotData.run.p1BattleStats || { spawned: 0, damage: 0, kills: 0, perks: 0 };
             
-            startGame(true); //Resume
+            // 🛠️ 【修復重點】讀檔時補上 p1.perks，如果存檔沒有（舊檔），就給預設值
+            p1.perks = currentSlotData.run.p1Perks || { 
+                critChance: 0, vampire: 0, knockback: 0, thorns: 0, explodeDmg: 0, costReduction: 0, energyOnKill: 0 
+            };
+            
+            startGame(true); // Resume
         } else {
-            initCampaign(); //New start
+            initCampaign(); // New start
         }
     }
 
@@ -1368,6 +1493,25 @@ const TREASURES = [
             return;
         }
 
+        // ✅ 新增：動態更新按鈕價格顯示
+        if (currentState === GAME_STATE.PLAYING || currentState === GAME_STATE.UPGRADE) {
+            let currentCost = 20 - p1.perks.costReduction;
+            if (currentCost < 5) currentCost = 5;
+            
+            // 找到按鈕上的價格文字標籤 (雖然原本沒有 class，我們可以用 querySelector 找 div)
+            // 這裡建議修改 HTML 結構給價格一個 class，但用簡單暴力法也可以：
+            const btnSword = document.querySelector('#btn-p1-sword div:last-child');
+            const btnSpear = document.querySelector('#btn-p1-spear div:last-child');
+            const btnAxe   = document.querySelector('#btn-p1-axe div:last-child');
+            
+            // 加上顏色提示：如果能量足夠顯示白色，不足顯示紅色
+            const color = p1.energy >= currentCost ? '#aaa' : '#f44';
+            
+            if(btnSword) { btnSword.innerText = `$${currentCost}`; btnSword.style.color = color; }
+            if(btnSpear) { btnSpear.innerText = `$${currentCost}`; btnSpear.style.color = color; }
+            if(btnAxe)   { btnAxe.innerText = `$${currentCost}`;   btnAxe.style.color = color; }
+        }
+
         //計時邏輯
         battleTime += dt;
         const minutes = Math.floor(battleTime / 60);
@@ -1444,16 +1588,16 @@ const TREASURES = [
 
                      // Loop 加成：連擊機率
                      if (currentLoop > 0 && p2.energy >= 20 && Math.random() < (currentLoop * 0.1)) {
-                         setTimeout(() => {
-                             if(p2.energy >= 20) {
+                        setTimeout(() => {
+                            // 增加檢查 currentState === GAME_STATE.PLAYING
+                            if(currentState === GAME_STATE.PLAYING && p2.energy >= 20) {
                                 p2.energy -= 20;
                                 p2.battleStats.spawned++; 
                                 p2.unitCounts[spawnType.name]++;
-                                
-                                units.push(new Unit(spawnLane, spawnType, false)); // 再出一隻
-                             }
-                         }, 200); // 延遲 0.2秒後追加
-                     }
+                                units.push(new Unit(spawnLane, spawnType, false)); 
+                            }
+                        }, 200); // 延遲 0.2秒後追加
+                    }
                 }
 
                 p2.spawnTimer = minSpawnTime;
@@ -1503,75 +1647,180 @@ const TREASURES = [
         }
 
         update(dt) {
-            this.animFrame+=dt*10; if(this.flashTime>0) this.flashTime-=dt; if(this.attackCooldown>0) this.attackCooldown-=dt;
-            let target=null; let minD=Infinity;
-            if(this.isPlayer1 && this.x>w-80) { target="BASE"; minD=0; } else if(!this.isPlayer1 && this.x<80) { target="BASE"; minD=0; }
-            else { for(let u of units) { if(u.lane===this.lane && u.isPlayer1!==this.isPlayer1 && u.hp>0) { let d=Math.abs(u.x-this.x); if(d<this.range && d<minD){ minD=d; target=u; } } } }
-            if(target) { this.state='ATTACK'; if(this.attackCooldown<=0) this.attack(target); } else { this.state='WALK'; this.x+=this.speed*dt; }
+            this.animFrame+=dt*10; 
+            if(this.flashTime>0) this.flashTime-=dt; 
+            if(this.attackCooldown>0) this.attackCooldown-=dt;
+
+            let target=null; 
+            let minD=Infinity;
+
+            // 索敵邏輯
+            if(this.isPlayer1 && this.x>w-80) { 
+                target="BASE"; 
+                minD=0; 
+            } else if(!this.isPlayer1 && this.x<80) { 
+            target="BASE"; 
+            minD=0; 
+            } else {
+                for (let u of units) {
+                    if (u.lane === this.lane && u.isPlayer1 !== this.isPlayer1 && u.hp > 0) {
+                    let d = Math.abs(u.x - this.x);
+                    if (d < this.range && d < minD) {
+                    minD = d;
+                    target = u;
+                        }
+                    }
+                }
+            }
+
+    // 狀態機切換
+    if (target) {
+        this.state = 'ATTACK';
+        if (this.attackCooldown <= 0) this.attack(target);
+    } else {
+        this.state = 'WALK';
+        this.x += this.speed * dt;
+    }
+                           
         }
 
         attack(target) {
-            this.attackCooldown=this.attackSpeed; 
-            SoundManager.playAttack(); 
-            let dmg=this.damage;
+            this.attackCooldown = this.attackSpeed; 
             
-            if(target!=="BASE") {
+            // 取得擁有者的 Perks
+            const owner = this.isPlayer1 ? p1 : p2;
+            const perks = owner.perks;
+
+            let dmg = this.damage;
+            let isCrit = false;
+
+            // 1. 🎯 處理爆擊 (War Council Effect)
+            if (perks.critChance > 0 && Math.random() < perks.critChance) {
+                dmg *= 2;
+                isCrit = true;
+            }
+
+            if(target !== "BASE") {
                 // 兵種相剋判定
                 const m=this.type.id, e=target.type.id;
+                // 這裡原本的相剋代碼保留...
                 if((m===0&&e===2)||(m===2&&e===1)||(m===1&&e===0)) { 
-                    dmg*=2; createFloatText(target.x,target.y-20,t('CRIT'),"#ff0"); 
+                    dmg*=2; createFloatText(target.x,target.y-20,t('CRIT'),"#ff0"); // 原本的相剋爆擊
                 } else if(m!==e) { 
                     dmg*=0.5; createFloatText(target.x,target.y-20,t('WEAK'),"#888"); 
                 }
                 
-                target.takeDamage(dmg); 
-                
-                // --- 🌟 新增：擊殺累積星星系統 ---
-                if(target.hp<=0 && this.isPlayer1) {
-                    p1.battleStats.kills++; // 本局擊殺統計
-                    
-                    // 讀取存檔中的全域累計擊殺
-                    if(currentSlotData && currentSlotData.meta) {
-                        // 如果是舊存檔沒有這個欄位，初始化為 0
-                        if(!currentSlotData.meta.totalKills) currentSlotData.meta.totalKills = 0;
-                        
-                        currentSlotData.meta.totalKills++;
+                // 顯示 War Council 的爆擊文字
+                if(isCrit) createFloatText(target.x, target.y-40, "FATAL!", "#f0f", 20);
 
-                        // 判斷是否達到 200 的倍數
-                        if(currentSlotData.meta.totalKills % 200 === 0) {
-                            currentSlotData.meta.stars++; // 增加星星
-                            
-                            // 畫面回饋：跳出金色的 +1 ⭐
-                            createFloatText(this.x, this.y - 60, "+1 ⭐", "#ffd700", 40);
-                            
-                            // 音效回饋
-                            SoundManager.playLevelUp();
-                            
-                            // 立即存檔 (確保刷到一半關掉遊戲也有算)
-                            saveCurrentSlot(); 
+                // 2. 🥊 處理擊退 (War Council Effect)
+                if (perks.knockback > 0 && Math.random() < perks.knockback) {
+                    // 向後推 30 像素
+                    const pushDir = this.isPlayer1 ? 1 : -1;
+                    target.x += pushDir * 30;
+                    createFloatText(target.x, target.y, "PUSH", "#fff");
+                }
+
+                // 造成傷害
+                target.takeDamage(dmg, this); // 傳入 source (this) 以便處理反傷
+
+                // 3. 🧛 處理吸血 (War Council Effect)
+                if (perks.vampire > 0) {
+                    const heal = dmg * perks.vampire;
+                    this.hp = Math.min(this.maxHp, this.hp + heal);
+                    // 綠色回復數字
+                    if(heal > 1) createFloatText(this.x, this.y, "+" + Math.floor(heal), "#0f0");
+                }
+                
+                // 4. 💰 擊殺回能 (War Council Effect) & 星星系統
+                if(target.hp <= 0) {
+                    if (this.isPlayer1) {
+                        p1.battleStats.kills++;
+                        
+                        // Scavenger Perk
+                        if (perks.energyOnKill > 0) {
+                             p1.energy += perks.energyOnKill;
+                             createFloatText(this.x, this.y-30, `+${perks.energyOnKill}⚡`, "#0ff");
+                        }
+
+                        // (保留原本的星星系統代碼...)
+                        if(currentSlotData && currentSlotData.meta) {
+                            if(!currentSlotData.meta.totalKills) currentSlotData.meta.totalKills = 0;
+                            currentSlotData.meta.totalKills++;
+                            if(currentSlotData.meta.totalKills % 200 === 0) {
+                                currentSlotData.meta.stars++;
+                                createFloatText(this.x, this.y - 60, "+1 ⭐", "#ffd700", 40);
+                                SoundManager.playLevelUp();
+                                saveCurrentSlot(); 
+                            }
                         }
                     }
+                    // AI 的擊殺回能
+                    else if (!this.isPlayer1 && perks.energyOnKill > 0) {
+                        p2.energy += perks.energyOnKill;
+                    }
                 }
-                // ----------------------------------
 
             } else {
-                // 攻擊基地邏輯 (保持不變)
+                // 攻擊基地 (代碼大致不變，但加上音效)
                 SoundManager.playHit();
                 if(this.isPlayer1) { 
-                    p2.baseHealth-=dmg; 
-                    p1.battleStats.damage+=Math.floor(dmg); 
-                    createFloatText(w-60,laneY[this.lane],Math.floor(dmg),"#fff"); 
+                    p2.baseHealth-=dmg; p1.battleStats.damage+=Math.floor(dmg); createFloatText(w-60,laneY[this.lane],Math.floor(dmg),"#fff"); 
                     if(p2.baseHealth<=0) gameOver(true); 
                 } else { 
-                    p1.baseHealth-=dmg; 
-                    p2.battleStats.damage+=Math.floor(dmg); 
-                    createFloatText(60,laneY[this.lane],Math.floor(dmg),"#f00"); 
+                    p1.baseHealth-=dmg; p2.battleStats.damage+=Math.floor(dmg); createFloatText(60,laneY[this.lane],Math.floor(dmg),"#f00"); 
                     if(p1.baseHealth<=0) gameOver(false); 
                 }
             }
         }
 
-        takeDamage(d) { this.hp -= d; this.flashTime=0.1; SoundManager.playHit(); spawnParticles(this.x, this.y, this.type.color, 3); }
+        takeDamage(d, source) { 
+            this.hp -= d; 
+            this.flashTime = 0.1; 
+            SoundManager.playHit(); 
+            spawnParticles(this.x, this.y, this.type.color, 3);
+            
+            // 處理死亡
+            if (this.hp <= 0) {
+                this.die(); // 新增 die 方法處理亡語
+            }
+
+            
+            // 🌵 處理反傷 (War Council Effect)
+            // 只有當傷害來源是 Unit (不是基地或陷阱)，且不是自己反彈給自己
+            if (source && source instanceof Unit && source !== this) {
+                const owner = this.isPlayer1 ? p1 : p2;
+                if (owner.perks.thorns > 0) {
+                    const reflectDmg = d * owner.perks.thorns;
+                    // 反傷不應該再次觸發反傷，傳入 null 作為 source
+                    source.takeDamage(reflectDmg, null); 
+                    spawnParticles(source.x, source.y, "#fff", 1); // 白色反傷粒子
+                }
+            }
+        }
+
+        die() {
+            const owner = this.isPlayer1 ? p1 : p2;
+            
+            // 💣 處理亡語/自爆 (War Council Effect)
+            if (owner.perks.explodeDmg > 0) {
+                SoundManager.playHit(); 
+                spawnParticles(this.x, this.y, "#ffaa00", 10); 
+                
+                // ✅ 修復：使用 setTimeout(..., 0) 將傷害邏輯推遲到當前執行緒結束後
+                // 這能有效防止 "A炸死B，B立刻炸死C" 造成的無限堆疊崩潰
+                setTimeout(() => {
+                    // 重新檢查 units，確保只對還活著的單位造成傷害
+                    units.forEach(u => {
+                        // 增加 u.hp > 0 檢查，避免鞭屍
+                        if (u && u.hp > 0 && u.isPlayer1 !== this.isPlayer1 && Math.abs(u.x - this.x) < 60 && u.lane === this.lane) {
+                            u.takeDamage(owner.perks.explodeDmg, null);
+                            createFloatText(u.x, u.y, "BOOM!", "#f50");
+                        }
+                    });
+                }, 0);
+            }
+        }
 
         draw(ctx) {
             ctx.save(); ctx.translate(this.x, this.y); ctx.scale(this.isPlayer1 ? 1 : -1, 1);
@@ -1749,29 +1998,124 @@ const TREASURES = [
     function spawnEnvParticles(type) { const x = Math.random() * w; const y = (type === 'EMBER') ? h : -10; envParticles.push({ x: x, y: y, vx: (Math.random()-0.5)*20, vy: (type==='EMBER')?-(Math.random()*30+10):(Math.random()*50+20), life: Math.random()*3+2, type: type, size: Math.random()*3+1 }); }
     function createFloatText(x, y, text, color, size=12) { floatTexts.push({x,y,text,color,size,life:1.0,vy:-30}); }
     
-    // Draft System
-    function startDraft(pNum) {
+    // --- Draft System (防崩潰安全版 v2) ---
+    let draftTimer = null; 
+
+    window.startDraft = function(pNum) {
+        // 1. 清理舊的計時器，防止干擾
+        if (draftTimer) { clearTimeout(draftTimer); draftTimer = null; }
+
         upgradeCurrentPlayer = pNum;
-        const container = document.getElementById('upgrade-container'); container.innerHTML = '';
-        const choices = []; while(choices.length<3) { const p = PERKS[Math.floor(Math.random()*PERKS.length)]; if(!choices.includes(p)) choices.push(p); }
+        
+        const titleEl = document.getElementById('upgrade-subtitle');
+        const container = document.getElementById('upgrade-container'); 
+        const menuEl = document.getElementById('upgrade-menu');
+
+        // 確保介面狀態正確
+        menuEl.style.display = 'flex';
+        container.innerHTML = ''; 
+        container.style.pointerEvents = 'auto'; // 重置點擊狀態
+        container.style.opacity = '1';
+
+        // 標題與防誤觸設定
+        if (gameMode === 'MULTI') {
+             if (pNum === 1) {
+                 titleEl.innerText = "PLAYER 1 TURN";
+                 titleEl.style.color = "#66f"; 
+                 
+                 // P1 入場防誤觸：鎖定 0.5 秒
+                 container.style.pointerEvents = 'none';
+                 container.style.opacity = '0.5';
+                 draftTimer = setTimeout(() => {
+                     container.style.pointerEvents = 'auto';
+                     container.style.opacity = '1';
+                 }, 500);
+             } else {
+                 titleEl.innerText = "PLAYER 2 TURN";
+                 titleEl.style.color = "#f66"; 
+             }
+        } else {
+             titleEl.innerText = "CHOOSE UPGRADE";
+             titleEl.style.color = "#fff";
+        }
+
+        // 2. 產生 3 張隨機卡片
+        const choices = []; 
+        while(choices.length < 3) { 
+            const p = PERKS[Math.floor(Math.random() * PERKS.length)]; 
+            if(!choices.includes(p)) choices.push(p); 
+        }
+        
         choices.forEach(p => {
-            const el = document.createElement('div'); el.className = 'card-choice mode-card';
-            el.innerHTML = `<div class="card-info"><div class="card-title">${p.names[currentLang]||p.names.en}</div><div class="card-icon">${p.icon}</div><div class="card-desc">${p.descs[currentLang]||p.descs.en}</div></div>`;
+            const el = document.createElement('div'); 
+            el.className = 'card-choice mode-card';
+            
+            const pName = p.names[currentLang] || p.names.en;
+            const pDesc = p.descs[currentLang] || p.descs.en;
+
+            el.innerHTML = `
+                <div class="card-info">
+                    <div class="card-title">${pName}</div>
+                    <div class="card-icon">${p.icon}</div>
+                    <div class="card-desc">${pDesc}</div>
+                </div>`;
+
+            // 3. 點擊事件 (加入 Try-Catch 防崩潰機制)
             el.onclick = () => {
-                const pl = pNum===1?p1:p2; p.apply(pl); pl.battleStats.perks++;
-                if(p.unitType==='ALL'){ pl.upgradeCounts.SWORD++; pl.upgradeCounts.SPEAR++; pl.upgradeCounts.AXE++; } else if(p.unitType) pl.upgradeCounts[p.unitType]++;
-                SoundManager.playLevelUp();
-                if(gameMode==='MULTI' && pNum===1) startDraft(2);
-                else {
-                    document.getElementById('upgrade-menu').style.display='none';
-                    if(gameMode==='CAMPAIGN'){ const ep = PERKS[Math.floor(Math.random()*PERKS.length)]; ep.apply(p2); }
-                    upgradeTimer = UPGRADE_INTERVAL; currentState = GAME_STATE.PLAYING;
+                try {
+                    // 立刻鎖定介面，防止連點
+                    container.style.pointerEvents = 'none';
+
+                    // 應用異能
+                    const pl = pNum === 1 ? p1 : p2; 
+                    p.apply(pl); 
+                    pl.battleStats.perks++;
+                    
+                    if(p.unitType === 'ALL'){ 
+                        pl.upgradeCounts.SWORD++; pl.upgradeCounts.SPEAR++; pl.upgradeCounts.AXE++; 
+                    } else if(p.unitType) {
+                        pl.upgradeCounts[p.unitType]++;
+                    }
+                    
+                    SoundManager.playLevelUp();
+                    
+                    // 邏輯分支
+                    if(gameMode === 'MULTI' && pNum === 1) {
+                        // 雙人模式 P1 -> P2
+                        container.innerHTML = `<div style="color:#fff; font-size:2vh; margin-top:10vh; animation:blink 0.5s infinite;">P1 OK!<br><br>PLAYER 2 READY...</div>`;
+                        draftTimer = setTimeout(() => {
+                            startDraft(2); 
+                        }, 500); 
+                    }
+                    else {
+                        // 單人模式 OR 雙人 P2 結束 -> 回到遊戲
+                        
+                        // AI 也隨機獲得一個能力 (僅單人模式)
+                        if(gameMode === 'CAMPAIGN'){ 
+                            try {
+                                const ep = PERKS[Math.floor(Math.random() * PERKS.length)]; 
+                                if(ep && p2) ep.apply(p2); 
+                            } catch(aiErr) {
+                                console.log("AI Perk Error (Ignored):", aiErr);
+                            }
+                        }
+                        
+                        // ✅ 強制恢復遊戲狀態
+                        menuEl.style.display = 'none';
+                        upgradeTimer = UPGRADE_INTERVAL; 
+                        currentState = GAME_STATE.PLAYING;
+                    }
+                } catch (err) {
+                    // 🚨 緊急救援：如果發生任何未知錯誤，強制恢復遊戲，避免當機
+                    console.error("Critical Draft Error:", err);
+                    document.getElementById('upgrade-menu').style.display = 'none';
+                    upgradeTimer = UPGRADE_INTERVAL; 
+                    currentState = GAME_STATE.PLAYING;
                 }
             };
             container.appendChild(el);
         });
-        document.getElementById('upgrade-menu').style.display = 'flex';
-    }
+    };
 
     // --- DRAWING FUNCTIONS ---
     function drawMenuRunner(ctx, runner) {
@@ -1929,15 +2273,49 @@ const TREASURES = [
 
         
         const rect=canvas.getBoundingClientRect(); const x=e.clientX-rect.left, y=e.clientY-rect.top;
-        if(x<80 && y<50) { 
+        if (x > 10 && x < 10 + 60 * renderScale && y > 10 && y < 10 + 30 * renderScale) { 
             if (gameMode === 'MULTI') showMainMenu();
             else showSlotLobby(); // Return to lobby in campaign
             return; 
         }
+        // 在 pointerdown 內
         for(let i=0; i<3; i++) {
             if(Math.abs(y-laneY[i])<40) {
-                if(gameMode==='MULTI' && x>w/2) { if(p2.energy>=20) { p2.energy-=20; units.push(new Unit(i,p2.selectedUnit,false)); SoundManager.playSpawn(); } }
-                else { if(p1.energy>=20) { p1.energy-=20; p1.battleStats.spawned++; p1.unitCounts[p1.selectedUnit.name]++; units.push(new Unit(i,p1.selectedUnit,true)); SoundManager.playSpawn(); } }
+                
+                // 🛑 情況 A: 雙人模式且點擊右半邊 (P2 派兵)
+                if(gameMode==='MULTI' && x > w/2) { 
+                    // 1. 計算 P2 費用 (讀取 p2.perks)
+                    let cost = 20 - p2.perks.costReduction; 
+                    if (cost < 5) cost = 5;
+
+                    // 2. 檢查能量與派兵
+                    if(p2.energy >= cost) {
+                        p2.energy -= cost;
+                        units.push(new Unit(i, p2.selectedUnit, false)); // false 代表 P2
+                        SoundManager.playSpawn();
+                        p2.battleStats.spawned++;
+                        p2.unitCounts[p2.selectedUnit.name]++;
+                    } else {
+                        createFloatText(x, y, t('NO_ENERGY'), "#888");
+                    }
+                } 
+                // 🛑 情況 B: 單人模式 或 點擊左半邊 (P1 派兵)
+                else if (x < w/2 || gameMode !== 'MULTI') { 
+                    // 1. 計算 P1 費用 (讀取 p1.perks)
+                    let cost = 20 - p1.perks.costReduction; 
+                    if (cost < 5) cost = 5;
+
+                    // 2. 檢查能量與派兵
+                    if(p1.energy >= cost) { 
+                        p1.energy -= cost; 
+                        units.push(new Unit(i, p1.selectedUnit, true)); // true 代表 P1
+                        SoundManager.playSpawn();
+                        p1.battleStats.spawned++;
+                        p1.unitCounts[p1.selectedUnit.name]++;
+                    } else {
+                        createFloatText(x, y, t('NO_ENERGY'), "#888");
+                    }
+                }
             }
         }
     });
@@ -1973,10 +2351,11 @@ const TREASURES = [
                 // 保存進度 (包含新的 loop 和 level)
                 currentSlotData.run = { 
                     level: currentLevel, 
-                    loop: currentLoop, // 保存 loop
+                    loop: currentLoop, 
                     p1Stats: p1.stats, 
                     p1Upgrades: p1.upgradeCounts, 
-                    p1BattleStats: p1.battleStats 
+                    p1BattleStats: p1.battleStats,
+                    p1Perks: p1.perks // 🛠️ 【修復重點】這裡要記得存 p1.perks！
                 };
                 saveCurrentSlot();
             }
